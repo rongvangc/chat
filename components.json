@@ -13,6 +13,7 @@
     "components": "@/components",
     "ui": "@/components/ui",
     "pages": "@/pages",
-    "utils": "@/lib/utils"
+    "utils": "@/lib/utils",
+    "store": "@/store"
   }
 }
