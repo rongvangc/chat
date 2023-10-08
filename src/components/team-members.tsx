@@ -5,7 +5,7 @@ export function ChatList() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Friend list</CardTitle>
+        <CardTitle>Chat list</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-6">
         <div className="flex items-center justify-between space-x-4">

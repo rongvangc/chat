@@ -1,11 +1,17 @@
+import { AlertError } from "@/components/alert";
 import { LoginAuthForm } from "@/components/login-auth-form";
 import { RegisterAuthForm } from "@/components/register-auth-form";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import useAuthStore from "@/stores/auth";
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
 export default function AuthenticationPage() {
+  useAuth();
   const [authStep, setAuthStep] = useState<boolean>(false); // fasle treat as register step;
+
+  const { errAuth, setAuthErr } = useAuthStore();
 
   const buttonSwitch = authStep ? "Register" : "Login";
 
@@ -20,6 +26,7 @@ export default function AuthenticationPage() {
             </p>
           </div>
           <LoginAuthForm />
+          {errAuth && <AlertError />}
         </>
       );
     }
@@ -35,6 +42,7 @@ export default function AuthenticationPage() {
           </p>
         </div>
         <RegisterAuthForm />
+        {errAuth && <AlertError />}
         <p className="px-8 text-center text-sm text-muted-foreground">
           By clicking continue, you agree to our{" "}
           <Link
@@ -54,11 +62,12 @@ export default function AuthenticationPage() {
         </p>
       </>
     );
-  }, [authStep]);
+  }, [authStep, errAuth]);
 
   const handleSwitchStep = useCallback(() => {
     setAuthStep(!authStep);
-  }, [authStep]);
+    setAuthErr(false);
+  }, [authStep, setAuthErr]);
 
   return (
     <>

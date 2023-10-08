@@ -3,8 +3,15 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { SearchUser } from "@/components/search-user";
 import { ChatList } from "@/components/team-members";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import useAuthStore from "@/stores/auth";
+import { LogOut } from "lucide-react";
 
 const ChatPage = () => {
+  useAuth();
+  const { handleSignOut } = useAuthStore();
+
   return (
     <div className="container mx-auto py-4 h-screen overflow-hidden">
       <div className="grid grid-cols-4 row-span-1 gap-4 h-full">
@@ -23,7 +30,12 @@ const ChatPage = () => {
                 </div>
               </div>
             </div>
-            <ModeToggle />
+            <div className="flex items-center gap-2">
+              <ModeToggle />
+              <Button onClick={handleSignOut}>
+                <LogOut size={12} />
+              </Button>
+            </div>
           </div>
           <div className="pt-4">
             <SearchUser />
