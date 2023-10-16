@@ -10,7 +10,7 @@ import { LogOut } from "lucide-react";
 
 const ChatPage = () => {
   useAuth();
-  const { handleSignOut } = useAuthStore();
+  const { user, handleSignOut } = useAuthStore();
 
   return (
     <div className="container mx-auto py-4 h-screen overflow-hidden">
@@ -20,12 +20,14 @@ const ChatPage = () => {
             <div className="flex items-center justify-between space-x-4">
               <div className="flex items-center space-x-4">
                 <Avatar>
-                  <AvatarImage src="/avatars/01.png" />
-                  <AvatarFallback>OM</AvatarFallback>
+                  <AvatarImage src={user?.photoURL ?? ""} />
+                  <AvatarFallback>
+                    {user?.displayName?.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
                 </Avatar>
                 <div>
                   <p className="text-sm font-medium leading-none">
-                    Sofia Davis
+                    {user?.displayName}
                   </p>
                 </div>
               </div>

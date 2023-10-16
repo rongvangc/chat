@@ -1,6 +1,20 @@
+import { db } from "@/config";
+import { UserType } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import useAuthStore from "@/stores/auth";
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+} from "firebase/firestore";
 import { Check } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Button } from "./ui/button";
 import {
   Command,
   CommandEmpty,
@@ -17,42 +31,51 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { Button } from "./ui/button";
-import { cn } from "@/lib/utils";
-
-const users = [
-  {
-    name: "Olivia Martin",
-    email: "m@example.com",
-    avatar: "/avatars/01.png",
-  },
-  {
-    name: "Isabella Nguyen",
-    email: "isabella.nguyen@email.com",
-    avatar: "/avatars/03.png",
-  },
-  {
-    name: "Emma Wilson",
-    email: "emma@example.com",
-    avatar: "/avatars/05.png",
-  },
-  {
-    name: "Jackson Lee",
-    email: "lee@example.com",
-    avatar: "/avatars/02.png",
-  },
-  {
-    name: "William Kim",
-    email: "will@email.com",
-    avatar: "/avatars/04.png",
-  },
-] as const;
-
-type User = (typeof users)[number];
 
 export const SearchUser = () => {
   const [open, setOpen] = useState<boolean>(false);
-  const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserType[]>();
+  const [selectedUsers, setSelectedUsers] = useState<UserType[]>([]);
+  const { user } = useAuthStore();
+
+  const getAllUser = useCallback(async () => {
+    const q = query(
+      collection(db, "users"),
+      where("displayName", "!=", user?.displayName)
+    );
+    let docs = [] as UserType[];
+    const querySnapshot = await getDocs(q);
+    querySnapshot.forEach((doc) => {
+      docs = docs.concat(doc.data() as UserType);
+    });
+
+    setUsers(docs);
+  }, [user?.displayName]);
+
+  const handleSelect = async () => {
+    const listUID = selectedUsers?.reduce((acc, value) => {
+      if (value?.uid) return acc.concat([value.uid]);
+      return acc;
+    }, [] as string[]);
+
+    //create unique ID for room
+    const roomId = listUID.join("-") + serverTimestamp();
+
+    try {
+      await setDoc(doc(db, "rooms", roomId), {
+        roomId: roomId,
+        createdAt: serverTimestamp(),
+        members: selectedUsers,
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // get all users
+  useEffect(() => {
+    getAllUser();
+  }, [getAllUser]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -94,9 +117,9 @@ export const SearchUser = () => {
             <CommandList>
               <CommandEmpty>No users found.</CommandEmpty>
               <CommandGroup className="p-2">
-                {users.map((user) => (
+                {users?.map((user) => (
                   <CommandItem
-                    key={user.email}
+                    key={user?.email}
                     className="flex items-center px-2"
                     onSelect={() => {
                       if (selectedUsers.includes(user)) {
@@ -115,15 +138,17 @@ export const SearchUser = () => {
                     }}
                   >
                     <Avatar>
-                      <AvatarImage src={user.avatar} alt="Image" />
-                      <AvatarFallback>{user.name[0]}</AvatarFallback>
+                      <AvatarImage src={user?.photoURL ?? ""} alt="Image" />
+                      <AvatarFallback>
+                        {user?.displayName?.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="ml-2">
                       <p className="text-sm font-medium leading-none">
-                        {user.name}
+                        {user?.displayName}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {user.email}
+                        {user?.email}
                       </p>
                     </div>
                     {selectedUsers.includes(user) ? (
@@ -139,11 +164,13 @@ export const SearchUser = () => {
               <div className="flex -space-x-2 overflow-hidden">
                 {selectedUsers.map((user) => (
                   <Avatar
-                    key={user.email}
+                    key={user?.displayName}
                     className="inline-block border-2 border-background"
                   >
-                    <AvatarImage src={user.avatar} />
-                    <AvatarFallback>{user.name[0]}</AvatarFallback>
+                    <AvatarImage src={user?.photoURL ?? ""} />
+                    <AvatarFallback>
+                      {user?.displayName?.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
                   </Avatar>
                 ))}
               </div>
@@ -153,9 +180,10 @@ export const SearchUser = () => {
               </p>
             )}
             <Button
-              disabled={selectedUsers.length < 2}
+              disabled={selectedUsers.length < 1}
               onClick={() => {
                 setOpen(false);
+                handleSelect();
               }}
             >
               Continue

@@ -1,4 +1,5 @@
 import { auth } from "@/config";
+import { UserType } from "@/lib/types";
 import useAuthStore from "@/stores/auth";
 import { onAuthStateChanged } from "firebase/auth";
 import { useEffect } from "react";
@@ -12,7 +13,7 @@ export const useAuth = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        setUser(user);
+        setUser(user as UserType);
       } else {
         setUser(null);
       }
