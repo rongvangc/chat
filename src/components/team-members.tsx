@@ -1,22 +1,18 @@
+import useAuthStore from "@/stores/auth";
 import useChatStore from "@/stores/chat";
+import { DocumentData } from "firebase/firestore";
 import { useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { DocumentData } from "firebase/firestore";
-import useAuthStore from "@/stores/auth";
+import { fallbackDisplayname } from "@/lib/utils";
 
 export function ChatList() {
   const { user } = useAuthStore();
-  const { rooms, getRoomsUser } = useChatStore();
+  const { rooms, getRoomsUser, setRoomSelect } = useChatStore();
 
   useEffect(() => {
     if (user) {
-      getRoomsUser({
-        displayName: user.displayName,
-        email: user?.email ?? "",
-        photoURL: user?.photoURL ?? "",
-        uid: user?.uid,
-      });
+      getRoomsUser(user?.uid);
     }
   }, [getRoomsUser, user]);
 
@@ -26,25 +22,32 @@ export function ChatList() {
         <CardTitle>Chat list</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-6">
-        {rooms.map((item) => {
+        {rooms?.map((item) => {
           const members = item?.members;
 
           // USER CHAT
-          if (members?.length === 1) {
-            const uid = members?.[0]?.uid;
-            const avatar = members?.[0]?.photoURL;
-            const email = members?.[0]?.email;
-            const displayName = members?.[0]?.displayName;
+          if (!item?.isGroup) {
+            const userFilter = members?.find(
+              (member) => member.uid !== user?.uid
+            );
+
+            const uid = userFilter?.uid;
+            const avatar = userFilter?.photoURL;
+            const email = userFilter?.email;
+            const displayName = userFilter?.displayName;
 
             return (
               <div
                 key={uid}
-                className="flex items-center justify-between space-x-4"
+                onClick={() => setRoomSelect(item)}
+                className="flex items-center justify-between space-x-4 cursor-pointer rounded-s-full rounded-e-md hover:bg-slate-50"
               >
                 <div className="flex items-center space-x-4">
                   <Avatar>
                     <AvatarImage src={avatar} />
-                    <AvatarFallback>OM</AvatarFallback>
+                    <AvatarFallback>
+                      {fallbackDisplayname(displayName)}
+                    </AvatarFallback>
                   </Avatar>
                   <div>
                     <p className="text-sm font-medium leading-none capitalize">
@@ -67,7 +70,11 @@ export function ChatList() {
           );
 
           return (
-            <div className="flex items-center justify-between space-x-4">
+            <div
+              key={item?.roomId}
+              onClick={() => setRoomSelect(item)}
+              className="flex items-center justify-between space-x-4 cursor-pointer rounded-s-full rounded-e-md hover:bg-slate-50"
+            >
               <div className="flex items-center space-x-4">
                 <Avatar>
                   <AvatarFallback>GR</AvatarFallback>

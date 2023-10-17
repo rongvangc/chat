@@ -1,11 +1,13 @@
 import { db } from "@/config";
-import { UserType } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { RoomType, UserType } from "@/lib/types";
+import { cn, fallbackDisplayname } from "@/lib/utils";
 import useAuthStore from "@/stores/auth";
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
+  onSnapshot,
   query,
   serverTimestamp,
   setDoc,
@@ -31,42 +33,74 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import useChatStore from "@/stores/chat";
+import { useToast } from "./ui/use-toast";
 
 export const SearchUser = () => {
   const [open, setOpen] = useState<boolean>(false);
   const [users, setUsers] = useState<UserType[]>();
-  const [selectedUsers, setSelectedUsers] = useState<UserType[]>([]);
+  const { toast } = useToast();
   const { user } = useAuthStore();
+  const { setRooms } = useChatStore();
+  const [selectedUsers, setSelectedUsers] = useState<UserType[]>([]);
+
+  const selectedUerOIncludeYou = [
+    {
+      displayName: user?.displayName,
+      email: user?.email,
+      photoURL: user?.photoURL,
+      uid: user?.uid,
+    },
+    ...selectedUsers,
+  ];
+
+  const listUID = selectedUerOIncludeYou?.reduce((acc, value) => {
+    if (value?.uid) return acc.concat([value.uid]);
+    return acc;
+  }, [] as string[]);
+
+  //create unique ID for room
+  const roomId = listUID.join("-");
 
   const getAllUser = useCallback(async () => {
-    const q = query(
-      collection(db, "users"),
-      where("displayName", "!=", user?.displayName)
-    );
-    let docs = [] as UserType[];
-    const querySnapshot = await getDocs(q);
-    querySnapshot.forEach((doc) => {
-      docs = docs.concat(doc.data() as UserType);
-    });
-
-    setUsers(docs);
-  }, [user?.displayName]);
-
-  const handleSelect = async () => {
-    const listUID = selectedUsers?.reduce((acc, value) => {
-      if (value?.uid) return acc.concat([value.uid]);
-      return acc;
-    }, [] as string[]);
-
-    //create unique ID for room
-    const roomId = listUID.join("-") + serverTimestamp();
-
-    try {
-      await setDoc(doc(db, "rooms", roomId), {
-        roomId: roomId,
-        createdAt: serverTimestamp(),
-        members: selectedUsers,
+    if (user?.uid) {
+      const q = query(collection(db, "users"), where("uid", "!=", user?.uid));
+      const docs = [] as UserType[];
+      const querySnapshot = await getDocs(q);
+      querySnapshot.forEach((doc) => {
+        docs.push(doc.data() as UserType);
       });
+
+      setUsers(docs);
+    }
+  }, [user?.uid]);
+
+  const handleCreateRoom = async () => {
+    try {
+      const res = await getDoc(doc(db, "rooms", roomId));
+
+      if (res.exists()) {
+        setSelectedUsers([]);
+        toast({
+          title: "Room existed",
+          description:
+            "Hi your room wanna create already exited, please check in chat list",
+          variant: "destructive",
+        });
+        console.log("Room existed");
+        return;
+      }
+
+      await setDoc(doc(db, "rooms", roomId), {
+        roomId,
+        createdAt: serverTimestamp(),
+        members: selectedUerOIncludeYou,
+        memberIds: listUID,
+        isGroup: listUID.length > 2,
+        createdUser: user?.uid
+      });
+
+      setSelectedUsers([]);
     } catch (err) {
       console.error(err);
     }
@@ -88,6 +122,30 @@ export const SearchUser = () => {
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
   }, []);
+
+  // listener event create rooms
+  useEffect(() => {
+    const q = query(collection(db, "rooms"));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {        
+        if (change.type === "added") {
+          const room = change.doc.data() as RoomType;
+
+          if (room?.createdUser !== user?.uid) {
+            setRooms(change.doc.data() as RoomType);
+          }
+        }
+        if (change.type === "modified") {
+          console.log("Modified room: ", change.doc.data());
+          setRooms(change.doc.data() as RoomType);
+        }
+      });
+    });
+
+    // Stop listening to changes
+    return () => unsubscribe();
+  }, [setRooms]);
 
   return (
     <>
@@ -140,7 +198,7 @@ export const SearchUser = () => {
                     <Avatar>
                       <AvatarImage src={user?.photoURL ?? ""} alt="Image" />
                       <AvatarFallback>
-                        {user?.displayName?.slice(0, 2).toUpperCase()}
+                        {fallbackDisplayname(user?.displayName)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="ml-2">
@@ -169,7 +227,7 @@ export const SearchUser = () => {
                   >
                     <AvatarImage src={user?.photoURL ?? ""} />
                     <AvatarFallback>
-                      {user?.displayName?.slice(0, 2).toUpperCase()}
+                      {fallbackDisplayname(user?.displayName)}
                     </AvatarFallback>
                   </Avatar>
                 ))}
@@ -183,7 +241,7 @@ export const SearchUser = () => {
               disabled={selectedUsers.length < 1}
               onClick={() => {
                 setOpen(false);
-                handleSelect();
+                handleCreateRoom();
               }}
             >
               Continue

@@ -1,151 +1,202 @@
-import { Check, Plus, Send } from "lucide-react";
+import { Send } from "lucide-react";
 
-import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { db } from "@/config";
+import { MessageType } from "@/lib/types";
+import { cn, fallbackDisplayname } from "@/lib/utils";
+import useAuthStore from "@/stores/auth";
+import useChatStore from "@/stores/chat";
+import {
+  DocumentData,
+  collection,
+  doc,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
+import { SyntheticEvent, useCallback, useEffect, useState } from "react";
+import { v4 as uuidv4 } from "uuid";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "./ui/card";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "./ui/command";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/dialog";
 import { Input } from "./ui/input";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "./ui/tooltip";
-
-const users = [
-  {
-    name: "Olivia Martin",
-    email: "m@example.com",
-    avatar: "/avatars/01.png",
-  },
-  {
-    name: "Isabella Nguyen",
-    email: "isabella.nguyen@email.com",
-    avatar: "/avatars/03.png",
-  },
-  {
-    name: "Emma Wilson",
-    email: "emma@example.com",
-    avatar: "/avatars/05.png",
-  },
-  {
-    name: "Jackson Lee",
-    email: "lee@example.com",
-    avatar: "/avatars/02.png",
-  },
-  {
-    name: "William Kim",
-    email: "will@email.com",
-    avatar: "/avatars/04.png",
-  },
-] as const;
-
-type User = (typeof users)[number];
 
 export function Chat() {
-  const [open, setOpen] = useState(false);
-  const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
+  const [message, setMessage] = useState<string>("");
 
-  const [messages, setMessages] = useState([
-    {
-      role: "agent",
-      content: "Hi, how can I help you today?",
+  const {
+    rooms,
+    selectedRoom,
+    messageByRoomId,
+    getMessageByRoomId,
+    setRoomSelect,
+    setMessageByRoomId,
+  } = useChatStore();
+  const { user } = useAuthStore();
+
+  const detechChatType = useCallback(() => {
+    // USER CHAT
+    if (!selectedRoom?.isGroup) {
+      const userFilter = selectedRoom.members?.find(
+        (member) => member.uid !== user?.uid
+      );
+
+      const uid = userFilter?.uid;
+      const avatar = userFilter?.photoURL;
+      const email = userFilter?.email;
+      const displayName = userFilter?.displayName;
+
+      return (
+        <div key={uid} className="flex items-center space-x-4">
+          <Avatar>
+            <AvatarImage src={avatar} alt="Image" />
+            <AvatarFallback>{fallbackDisplayname(displayName)}</AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="text-sm font-medium leading-none">{displayName}</p>
+            <p className="text-sm text-muted-foreground">{email}</p>
+          </div>
+        </div>
+      );
+    }
+
+    // GROUP CHAT
+    const usersGroup = selectedRoom?.members?.reduce(
+      (acc: string[], value: DocumentData) => {
+        if (value?.displayName) return acc.concat([value.displayName]);
+        return acc;
+      },
+      [] as string[]
+    );
+
+    return (
+      <div className="flex items-center space-x-4">
+        <Avatar>
+          <AvatarFallback>GR</AvatarFallback>
+        </Avatar>
+        <div>
+          <div className="flex gap-1">
+            {usersGroup?.map((userName: string, i: number) => (
+              <p
+                key={`${userName}-${i}`}
+                className="text-sm font-medium leading-none capitalize"
+              >
+                {userName + (usersGroup.length === i + 1 ? "" : ",")}
+              </p>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }, [selectedRoom?.isGroup, selectedRoom?.members]);
+
+  const handleSendChat = useCallback(
+    async (e: SyntheticEvent) => {
+      e.preventDefault();
+
+      if (user?.uid && selectedRoom?.roomId) {
+        const messageSend: MessageType = {
+          senderId: user?.uid,
+          content: message,
+          createdAt: serverTimestamp(),
+          read: false,
+        };
+
+        await setDoc(
+          doc(db, "rooms", selectedRoom?.roomId, "messages", uuidv4()),
+          messageSend
+        );
+
+        setMessage("");
+      }
     },
-    {
-      role: "user",
-      content: "Hey, I'm having trouble with my account.",
-    },
-    {
-      role: "agent",
-      content: "What seems to be the problem?",
-    },
-    {
-      role: "user",
-      content: "I can't log in.",
-    },
-  ]);
-  const [input, setInput] = useState("");
-  const inputLength = input.trim().length;
+    [message, selectedRoom?.roomId, user?.uid]
+  );
+
+  // selected room on first start
+  useEffect(() => {
+    if (!selectedRoom?.roomId && rooms?.length) {
+      setRoomSelect(rooms[0]);
+    }
+  }, [rooms, selectedRoom?.roomId, setRoomSelect]);
+
+  // listener event chat event
+  useEffect(() => {
+    if (selectedRoom?.roomId) {
+      const q = query(
+        collection(db, "rooms", selectedRoom?.roomId, "messages")
+      );
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added") {
+            const newMessage = change.doc.data() as MessageType;
+            
+            if (newMessage.senderId !== user?.uid) {
+              setMessageByRoomId(change.doc.data() as MessageType);
+            }
+          }
+          if (change.type === "modified") {
+            setMessageByRoomId(change.doc.data() as MessageType);
+          }
+        });
+      });
+
+      // Stop listening to changes
+      return () => unsubscribe();
+    }
+  }, [selectedRoom?.roomId, setMessageByRoomId, user?.uid]);
+
+  // Auto select room ID if have one
+  useEffect(() => {
+    if (selectedRoom?.roomId) {
+      getMessageByRoomId(selectedRoom?.roomId);
+    }
+  }, [getMessageByRoomId, selectedRoom?.roomId]);
+
+  if (!selectedRoom?.roomId) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-col items-center justify-center h-full">
+          <img
+            src="https://firebasestorage.googleapis.com/v0/b/chat-f60b9.appspot.com/o/empty.svg?alt=media&token=8e92ccb7-f17b-4300-b80f-e433701065f0&_gl=1*whwqrv*_ga*NzE3OTE0NDQ0LjE2OTc1MjQ0MDc.*_ga_CW55HF8NVT*MTY5NzUyNDQwNy4xLjEuMTY5NzU0Mzk5Ny4yOC4wLjA."
+            alt="empty"
+            className="max-w-[30%]"
+          />
+          <h3 className="font-semibold text-lg leading-none tracking-tight p-8 m-auto">
+            Please search users to create chat room
+          </h3>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   return (
     <div className="w-full h-full">
       <Card>
         <CardHeader className="flex flex-row items-center">
-          <div className="flex items-center space-x-4">
-            <Avatar>
-              <AvatarImage src="/avatars/01.png" alt="Image" />
-              <AvatarFallback>OM</AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="text-sm font-medium leading-none">Sofia Davis</p>
-              <p className="text-sm text-muted-foreground">m@example.com</p>
-            </div>
-          </div>
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  className="ml-auto rounded-full"
-                  onClick={() => setOpen(true)}
-                >
-                  <Plus className="h-4 w-4" />
-                  <span className="sr-only">New message</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent sideOffset={10}>New message</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {detechChatType()}
         </CardHeader>
+
         <CardContent>
           <div className="space-y-4 max-h-max">
-            {messages.map((message, index) => (
+            {messageByRoomId?.map((data, index) => (
               <div
                 key={index}
                 className={cn(
                   "flex w-max max-w-[75%] flex-col gap-2 rounded-lg px-3 py-2 text-sm",
-                  message.role === "user"
+                  data.senderId === user?.uid
                     ? "ml-auto bg-primary text-primary-foreground"
                     : "bg-muted"
                 )}
               >
-                {message.content}
+                {data.content}
               </div>
             ))}
           </div>
         </CardContent>
         <CardFooter>
           <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (inputLength === 0) return;
-              setMessages([
-                ...messages,
-                {
-                  role: "user",
-                  content: input,
-                },
-              ]);
-              setInput("");
-            }}
+            onSubmit={handleSendChat}
             className="flex w-full items-center space-x-2"
           >
             <Input
@@ -153,99 +204,16 @@ export function Chat() {
               placeholder="Type your message..."
               className="flex-1"
               autoComplete="off"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
             />
-            <Button type="submit" size="icon" disabled={inputLength === 0}>
+            <Button type="submit" size="icon" disabled={message.length === 0}>
               <Send className="h-4 w-4" />
               <span className="sr-only">Send</span>
             </Button>
           </form>
         </CardFooter>
       </Card>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="gap-0 p-0 outline-none">
-          <DialogHeader className="px-4 pb-4 pt-5">
-            <DialogTitle>New message</DialogTitle>
-            <DialogDescription>
-              Invite a user to this thread. This will create a new group
-              message.
-            </DialogDescription>
-          </DialogHeader>
-          <Command className="overflow-hidden rounded-t-none border-t">
-            <CommandInput placeholder="Search user..." />
-            <CommandList>
-              <CommandEmpty>No users found.</CommandEmpty>
-              <CommandGroup className="p-2">
-                {users.map((user) => (
-                  <CommandItem
-                    key={user.email}
-                    className="flex items-center px-2"
-                    onSelect={() => {
-                      if (selectedUsers.includes(user)) {
-                        return setSelectedUsers(
-                          selectedUsers.filter(
-                            (selectedUser) => selectedUser !== user
-                          )
-                        );
-                      }
-
-                      return setSelectedUsers(
-                        [...users].filter((u) =>
-                          [...selectedUsers, user].includes(u)
-                        )
-                      );
-                    }}
-                  >
-                    <Avatar>
-                      <AvatarImage src={user.avatar} alt="Image" />
-                      <AvatarFallback>{user.name[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="ml-2">
-                      <p className="text-sm font-medium leading-none">
-                        {user.name}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {user.email}
-                      </p>
-                    </div>
-                    {selectedUsers.includes(user) ? (
-                      <Check className="ml-auto flex h-5 w-5 text-primary" />
-                    ) : null}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-          <DialogFooter className="flex items-center border-t p-4 sm:justify-between">
-            {selectedUsers.length > 0 ? (
-              <div className="flex -space-x-2 overflow-hidden">
-                {selectedUsers.map((user) => (
-                  <Avatar
-                    key={user.email}
-                    className="inline-block border-2 border-background"
-                  >
-                    <AvatarImage src={user.avatar} />
-                    <AvatarFallback>{user.name[0]}</AvatarFallback>
-                  </Avatar>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Select users to add to this thread.
-              </p>
-            )}
-            <Button
-              disabled={selectedUsers.length < 2}
-              onClick={() => {
-                setOpen(false);
-              }}
-            >
-              Continue
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

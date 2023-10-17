@@ -1,4 +1,5 @@
 import { User, UserCredential } from "firebase/auth";
+import { FieldValue } from "firebase/firestore";
 
 export type UserType =
   | ({
@@ -14,3 +15,19 @@ export type MemberType = {
   photoURL: string;
   uid: string;
 };
+
+export type RoomType = {
+  roomId?: string;
+  members?: MemberType[]
+  memberIds?: string[]
+  createdAt?: FieldValue
+  isGroup?: boolean
+  createdUser?: string;
+}
+
+export type MessageType = {
+  senderId: string,
+  content: string,
+  createdAt: FieldValue,
+  read: boolean
+}

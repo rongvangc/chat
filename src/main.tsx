@@ -5,6 +5,7 @@ import { ThemeProvider } from "./components/theme-provider.tsx";
 import "./globals.css";
 import AuthenticationPage from "./pages/auth.tsx";
 import ChatPage from "./pages/chat.tsx";
+import ErrorBoundary from "./hooks/useErrorBoundary.tsx";
 
 const router = createBrowserRouter([
   {
@@ -19,8 +20,10 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <RouterProvider router={router} />
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+        <RouterProvider router={router} />
+      </ThemeProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );

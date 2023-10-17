@@ -5,6 +5,7 @@ import { ChatList } from "@/components/team-members";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { fallbackDisplayname } from "@/lib/utils";
 import useAuthStore from "@/stores/auth";
 import { LogOut } from "lucide-react";
 
@@ -22,7 +23,7 @@ const ChatPage = () => {
                 <Avatar>
                   <AvatarImage src={user?.photoURL ?? ""} />
                   <AvatarFallback>
-                    {user?.displayName?.slice(0, 2).toUpperCase()}
+                    {fallbackDisplayname(user?.displayName)}
                   </AvatarFallback>
                 </Avatar>
                 <div>

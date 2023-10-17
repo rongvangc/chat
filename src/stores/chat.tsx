@@ -1,28 +1,40 @@
 import { db } from "@/config";
-import { MemberType } from "@/lib/types";
-import {
-  DocumentData,
-  collection,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+import { MessageType, RoomType } from "@/lib/types";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { create } from "zustand";
 
 interface ChatState {
-  rooms: DocumentData[];
-  getRooms: () => void;
-  getRoomsUser: (member: MemberType) => void;
+  rooms: RoomType[];
+  messageByRoomId: MessageType[];
+  selectedRoom: RoomType;
+  setRooms: (data: RoomType) => void;
+  getRoomsUser: (memberId: string) => void;
+  setRoomSelect: (selectedRoom: RoomType) => void;
+  getMessageByRoomId: (roomId: string) => void;
+  setMessageByRoomId: (message: MessageType) => void;
 }
 
 const useChatStore = create<ChatState>((set) => ({
   rooms: [],
-  getRooms: async () => {
-    const docSnap = await getDocs(collection(db, "rooms"));
+  selectedRoom: {},
+  messageByRoomId: [],
+  setRooms: (data) =>
+    set((state) => ({
+      ...state,
+      rooms: [data, ...state.rooms],
+    })),
+  getRoomsUser: async (memberId: string) => {
+    const docs: RoomType[] = [];
 
-    let docs: DocumentData[] = [];
-    docSnap.forEach((doc) => {
-      docs = docs.concat(doc.data());
+    const q = query(
+      collection(db, "rooms"),
+      where("memberIds", "array-contains", memberId)
+    );
+
+    const querySnapshot = await getDocs(q);
+
+    querySnapshot.forEach((doc) => {
+      docs.push(doc.data() as RoomType);
     });
 
     set((state) => ({
@@ -30,41 +42,33 @@ const useChatStore = create<ChatState>((set) => ({
       rooms: docs,
     }));
   },
-  getRoomsUser: async (member: MemberType) => {
-    const q = query(
-      collection(db, "rooms"),
-      where(
-        "members",
-        "array-contains",
-        JSON.stringify({
-          displayName: "Shyn",
-          email: "info@gmail.com",
-          photoURL:
-            "https://firebasestorage.googleapis.com/v0/b/chat-f60b9.appspot.com/o/Shyn1696758275815?alt=media&token=bc0efe10-a146-4785-97df-f9c0fefcf4f5",
-          uid: "6uZ8lQwRSfaJLTJ1XSxXKKatFX02",
-        })
-      )
+  getMessageByRoomId: async (roomId: string) => {
+    const docs: MessageType[] = [];
+
+    const querySnapshot = await getDocs(
+      collection(db, "rooms", roomId, "messages")
     );
 
-    console.log(
-      JSON.stringify({
-        displayName: "Shyn",
-        email: "info@gmail.com",
-        photoURL:
-          "https://firebasestorage.googleapis.com/v0/b/chat-f60b9.appspot.com/o/Shyn1696758275815?alt=media&token=bc0efe10-a146-4785-97df-f9c0fefcf4f5",
-        uid: "6uZ8lQwRSfaJLTJ1XSxXKKatFX02",
-      })
-    );
-
-    const querySnapshot = await getDocs(q);
     querySnapshot.forEach((doc) => {
       // doc.data() is never undefined for query doc snapshots
-      console.log(doc.id, " => ", doc.data());
+      docs.push(doc.data() as MessageType);
     });
 
     set((state) => ({
       ...state,
-      rooms: [],
+      messageByRoomId: docs,
+    }));
+  },
+  setMessageByRoomId: async (message: MessageType) => {
+    set((state) => ({
+      ...state,
+      messageByRoomId: [...state.messageByRoomId, message],
+    }));
+  },
+  setRoomSelect: async (selectedRoom) => {
+    set((state) => ({
+      ...state,
+      selectedRoom,
     }));
   },
 }));
