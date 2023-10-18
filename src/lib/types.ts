@@ -18,16 +18,17 @@ export type MemberType = {
 
 export type RoomType = {
   roomId?: string;
-  members?: MemberType[]
-  memberIds?: string[]
-  createdAt?: FieldValue
-  isGroup?: boolean
+  members?: MemberType[];
+  memberIds?: string[];
+  createdAt?: FieldValue;
+  isGroup?: boolean;
   createdUser?: string;
-}
+};
 
 export type MessageType = {
-  senderId: string,
-  content: string,
-  createdAt: FieldValue,
-  read: boolean
-}
+  senderId: string;
+  content: string;
+  photoURL: string;
+  displayName: string;
+  createdAt: FieldValue;
+};

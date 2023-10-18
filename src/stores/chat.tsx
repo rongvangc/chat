@@ -1,6 +1,6 @@
 import { db } from "@/config";
 import { MessageType, RoomType } from "@/lib/types";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
 import { create } from "zustand";
 
 interface ChatState {
@@ -54,7 +54,10 @@ const useChatStore = create<ChatState>((set) => ({
   getMessageByRoomId: async (roomId: string) => {
     const docs: MessageType[] = [];
     const querySnapshot = await getDocs(
-      collection(db, "rooms", roomId, "messages")
+      query(
+        collection(db, "rooms", roomId, "messages"),
+        orderBy("createdAt", "asc")
+      )
     );
 
     querySnapshot.forEach((doc) => {

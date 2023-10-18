@@ -20,7 +20,7 @@ const ChatPage = () => {
       <div className="grid grid-cols-4 row-span-1 gap-4 h-full">
         <div
           className={cn(
-            "col-span-4 bg-white h-full w-full p-4 left-0 top-0 md:col-span-1 absolute md:relative activeDraw md:visible md:translate-x-0",
+            "col-span-4 bg-white rounded-xl h-full w-full p-4 left-0 top-0 md:col-span-1 absolute md:relative activeDraw md:visible md:translate-x-0",
             showMobileDraw ? "active" : ""
           )}
         >
@@ -47,6 +47,7 @@ const ChatPage = () => {
             </div>
             <div className="flex items-center gap-2">
               <ModeToggle />
+
               <Button onClick={handleSignOut}>
                 <LogOut size={12} />
               </Button>

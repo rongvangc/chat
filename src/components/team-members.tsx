@@ -1,10 +1,10 @@
+import { fallbackDisplayname } from "@/lib/utils";
 import useAuthStore from "@/stores/auth";
 import useChatStore from "@/stores/chat";
 import { DocumentData } from "firebase/firestore";
 import { useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { fallbackDisplayname } from "@/lib/utils";
 
 export function ChatList() {
   const { user } = useAuthStore();
@@ -92,6 +92,11 @@ export function ChatList() {
                   </div>
                 </div>
               </div>
+              {/* {count && (
+                <div className="rounded-full bg-red-400 text-white w-7 h-7 flex items-center justify-center">
+                  1
+                </div>
+              )} */}
             </div>
           );
         })}

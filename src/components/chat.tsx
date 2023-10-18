@@ -10,11 +10,19 @@ import {
   collection,
   doc,
   onSnapshot,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
+  where,
 } from "firebase/firestore";
-import { SyntheticEvent, useCallback, useEffect, useState } from "react";
+import {
+  SyntheticEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
@@ -34,6 +42,8 @@ export function Chat() {
   } = useChatStore();
   const { user } = useAuthStore();
   const { setShowMobileDraw } = useChatStore();
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const detechChatType = useCallback(() => {
     // USER CHAT
@@ -110,6 +120,22 @@ export function Chat() {
     user?.uid,
   ]);
 
+  const handleReadMessage = useCallback(() => {
+    if (selectedRoom?.roomId) {
+      const q = query(
+        collection(db, "rooms", selectedRoom?.roomId, "messages"),
+        where("read", "==", false)
+      );
+      onSnapshot(q, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          console.log(change.doc.data());
+        });
+      });
+    }
+
+    console.log("runnn");
+  }, [selectedRoom?.roomId]);
+
   const handleSendChat = useCallback(
     async (e: SyntheticEvent) => {
       e.preventDefault();
@@ -119,7 +145,8 @@ export function Chat() {
           senderId: user?.uid,
           content: message,
           createdAt: serverTimestamp(),
-          read: false,
+          displayName: user?.displayName,
+          photoURL: user?.photoURL ?? "",
         };
 
         await setDoc(
@@ -130,7 +157,13 @@ export function Chat() {
         setMessage("");
       }
     },
-    [message, selectedRoom?.roomId, user?.uid]
+    [
+      message,
+      selectedRoom?.roomId,
+      user?.displayName,
+      user?.photoURL,
+      user?.uid,
+    ]
   );
 
   // selected room on first start
@@ -144,7 +177,8 @@ export function Chat() {
   useEffect(() => {
     if (selectedRoom?.roomId) {
       const q = query(
-        collection(db, "rooms", selectedRoom?.roomId, "messages")
+        collection(db, "rooms", selectedRoom?.roomId, "messages"),
+        orderBy("createdAt", "asc")
       );
       const unsubscribe = onSnapshot(q, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
@@ -153,10 +187,18 @@ export function Chat() {
 
             if (newMessage.senderId !== user?.uid) {
               setMessageByRoomId(change.doc.data() as MessageType);
+              messagesEndRef?.current?.scrollTo({
+                behavior: "smooth",
+                top: 0,
+              });
             }
           }
           if (change.type === "modified") {
             setMessageByRoomId(change.doc.data() as MessageType);
+            messagesEndRef?.current?.scrollTo({
+              behavior: "smooth",
+              top: 0,
+            });
           }
         });
       });
@@ -172,6 +214,15 @@ export function Chat() {
       getMessageByRoomId(selectedRoom?.roomId);
     }
   }, [getMessageByRoomId, selectedRoom?.roomId]);
+
+  useEffect(() => {
+    if (message) {
+      messagesEndRef?.current?.scrollTo({
+        behavior: "smooth",
+        top: 0,
+      });
+    }
+  }, [message]);
 
   if (!selectedRoom?.roomId) {
     return (
@@ -197,19 +248,34 @@ export function Chat() {
           {detechChatType()}
         </CardHeader>
 
-        <CardContent>
-          <div className="space-y-4 max-h-max">
+        <CardContent ref={messagesEndRef} className="flex flex-col-reverse">
+          <div key={selectedRoom?.roomId} className="space-y-4 max-h-max">
             {messageByRoomId?.map((data, index) => (
               <div
                 key={index}
                 className={cn(
-                  "flex w-max max-w-[75%] flex-col gap-2 rounded-lg px-3 py-2 text-sm",
+                  "flex gap-2 items-center",
                   data.senderId === user?.uid
-                    ? "ml-auto bg-primary text-primary-foreground"
-                    : "bg-muted"
+                    ? ""
+                    : "flex-row-reverse justify-end"
                 )}
               >
-                {data.content}
+                <div
+                  className={cn(
+                    "flex w-max max-w-[75%] flex-col gap-2 rounded-lg px-3 py-2 text-sm",
+                    data.senderId === user?.uid
+                      ? "ml-auto bg-primary text-primary-foreground"
+                      : "bg-muted"
+                  )}
+                >
+                  {data.content}
+                </div>
+                <Avatar>
+                  <AvatarImage src={data?.photoURL} alt="Image" />
+                  <AvatarFallback>
+                    {fallbackDisplayname(data?.displayName)}
+                  </AvatarFallback>
+                </Avatar>
               </div>
             ))}
           </div>
@@ -225,6 +291,7 @@ export function Chat() {
               className="flex-1"
               autoComplete="off"
               value={message}
+              onFocus={handleReadMessage}
               onChange={(event) => setMessage(event.target.value)}
             />
             <Button type="submit" size="icon" disabled={message.length === 0}>

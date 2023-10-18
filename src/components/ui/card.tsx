@@ -59,7 +59,7 @@ const CardContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("p-6 pt-0 h-[calc(100%-200px)] overflow-y-auto", className)}
+    className={cn("p-6 pt-0 chat-content overflow-y-auto", className)}
     {...props}
   />
 ));
