@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 export const useAuth = () => {
-  const { user, setUser } = useAuthStore();
+  const { setUser } = useAuthStore();
   const navigate = useNavigate();
 
   // Listen for Authentication Changes
@@ -14,20 +14,14 @@ export const useAuth = () => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUser(user as UserType);
+        navigate("/chat");
       } else {
         setUser(null);
+        navigate("/");
       }
     });
 
     return () => unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (user) {
-      navigate("/chat");
-    } else {
-      navigate("/");
-    }
-  }, [navigate, user]);
 };

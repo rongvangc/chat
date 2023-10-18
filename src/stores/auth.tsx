@@ -23,6 +23,7 @@ interface RegisterType extends LoginType {
 interface AuthState {
   errAuth: boolean;
   user: UserType;
+  loading: boolean;
   setUser: (user: UserType) => void;
   setAuthErr: (data: boolean) => void;
   handleSignIn: (data: LoginType) => void;
@@ -33,6 +34,7 @@ interface AuthState {
 const useAuthStore = create<AuthState>((set) => ({
   user: null,
   errAuth: false,
+  loading: false,
   setAuthErr: (data) =>
     set((state) => ({
       ...state,
@@ -44,15 +46,21 @@ const useAuthStore = create<AuthState>((set) => ({
     set({ user: null });
   },
   handleSignIn: async ({ email, password }: LoginType) => {
+    set((state) => ({
+      ...state,
+      loading: true,
+    }));
+
     try {
       const res = await signInWithEmailAndPassword(auth, email, password);
       set((state) => ({
         ...state,
         user: res.user as UserType,
         errAuth: false,
+        loading: false,
       }));
     } catch (error) {
-      set({ errAuth: true, user: null });
+      set({ errAuth: true, user: null, loading: false });
     }
   },
   handleRegister: async ({
@@ -61,6 +69,11 @@ const useAuthStore = create<AuthState>((set) => ({
     displayName = "",
     file,
   }: RegisterType) => {
+    set((state) => ({
+      ...state,
+      loading: true,
+    }));
+
     try {
       const res = await createUserWithEmailAndPassword(auth, email, password);
 
@@ -87,7 +100,7 @@ const useAuthStore = create<AuthState>((set) => ({
             //create empty user chats on firestore
             await setDoc(doc(db, "userChats", res.user.uid), {});
           } catch (err) {
-            set({ errAuth: true, user: null });
+            set({ errAuth: true, user: null, loading: false });
           }
         });
       });
@@ -95,9 +108,10 @@ const useAuthStore = create<AuthState>((set) => ({
       set((state) => ({
         ...state,
         user: res.user as UserType,
+        loading: false,
       }));
     } catch (error) {
-      set({ errAuth: true, user: null });
+      set({ errAuth: true, user: null, loading: false });
     }
   },
 }));

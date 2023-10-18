@@ -5,18 +5,30 @@ import { ChatList } from "@/components/team-members";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { fallbackDisplayname } from "@/lib/utils";
+import { cn, fallbackDisplayname } from "@/lib/utils";
 import useAuthStore from "@/stores/auth";
-import { LogOut } from "lucide-react";
+import useChatStore from "@/stores/chat";
+import { LogOut, XCircle } from "lucide-react";
 
 const ChatPage = () => {
   useAuth();
   const { user, handleSignOut } = useAuthStore();
+  const { showMobileDraw, setShowMobileDraw } = useChatStore();
 
   return (
-    <div className="container mx-auto py-4 h-screen overflow-hidden">
+    <div className="container mx-auto p-0 md:py-4 h-screen overflow-hidden">
       <div className="grid grid-cols-4 row-span-1 gap-4 h-full">
-        <div className="col-span-1">
+        <div
+          className={cn(
+            "col-span-4 bg-white h-full w-full p-4 left-0 top-0 md:col-span-1 absolute md:relative activeDraw md:visible md:translate-x-0",
+            showMobileDraw ? "active" : ""
+          )}
+        >
+          <div className="flex md:hidden justify-end mb-2">
+            <Button variant="outline" onClick={() => setShowMobileDraw(false)}>
+              <XCircle size={16} />
+            </Button>
+          </div>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center justify-between space-x-4">
               <div className="flex items-center space-x-4">
@@ -47,7 +59,7 @@ const ChatPage = () => {
             <ChatList />
           </div>
         </div>
-        <div className="col-span-3">
+        <div className="col-span-4 md:col-span-3">
           <Chat />
         </div>
       </div>

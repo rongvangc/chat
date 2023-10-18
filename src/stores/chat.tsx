@@ -7,6 +7,8 @@ interface ChatState {
   rooms: RoomType[];
   messageByRoomId: MessageType[];
   selectedRoom: RoomType;
+  showMobileDraw: boolean;
+  setShowMobileDraw: (data: boolean) => void;
   setRooms: (data: RoomType) => void;
   getRoomsUser: (memberId: string) => void;
   setRoomSelect: (selectedRoom: RoomType) => void;
@@ -17,7 +19,14 @@ interface ChatState {
 const useChatStore = create<ChatState>((set) => ({
   rooms: [],
   selectedRoom: {},
+  loading: false,
   messageByRoomId: [],
+  showMobileDraw: false,
+  setShowMobileDraw: (data) =>
+    set((state) => ({
+      ...state,
+      showMobileDraw: data,
+    })),
   setRooms: (data) =>
     set((state) => ({
       ...state,
@@ -44,7 +53,6 @@ const useChatStore = create<ChatState>((set) => ({
   },
   getMessageByRoomId: async (roomId: string) => {
     const docs: MessageType[] = [];
-
     const querySnapshot = await getDocs(
       collection(db, "rooms", roomId, "messages")
     );
@@ -69,6 +77,7 @@ const useChatStore = create<ChatState>((set) => ({
     set((state) => ({
       ...state,
       selectedRoom,
+      showMobileDraw: false,
     }));
   },
 }));

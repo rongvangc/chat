@@ -1,4 +1,4 @@
-import { Send } from "lucide-react";
+import { Menu, Send } from "lucide-react";
 
 import { db } from "@/config";
 import { MessageType } from "@/lib/types";
@@ -33,6 +33,7 @@ export function Chat() {
     setMessageByRoomId,
   } = useChatStore();
   const { user } = useAuthStore();
+  const { setShowMobileDraw } = useChatStore();
 
   const detechChatType = useCallback(() => {
     // USER CHAT
@@ -48,6 +49,13 @@ export function Chat() {
 
       return (
         <div key={uid} className="flex items-center space-x-4">
+          <i
+            onClick={() => setShowMobileDraw(true)}
+            className="md:hidden md:max-w-none cursor-pointer"
+          >
+            <Menu />
+          </i>
+
           <Avatar>
             <AvatarImage src={avatar} alt="Image" />
             <AvatarFallback>{fallbackDisplayname(displayName)}</AvatarFallback>
@@ -71,6 +79,13 @@ export function Chat() {
 
     return (
       <div className="flex items-center space-x-4">
+        <i
+          onClick={() => setShowMobileDraw(true)}
+          className="md:hidden md:max-w-none cursor-pointer"
+        >
+          <Menu />
+        </i>
+
         <Avatar>
           <AvatarFallback>GR</AvatarFallback>
         </Avatar>
@@ -88,7 +103,12 @@ export function Chat() {
         </div>
       </div>
     );
-  }, [selectedRoom?.isGroup, selectedRoom?.members]);
+  }, [
+    selectedRoom?.isGroup,
+    selectedRoom.members,
+    setShowMobileDraw,
+    user?.uid,
+  ]);
 
   const handleSendChat = useCallback(
     async (e: SyntheticEvent) => {
@@ -130,7 +150,7 @@ export function Chat() {
         snapshot.docChanges().forEach((change) => {
           if (change.type === "added") {
             const newMessage = change.doc.data() as MessageType;
-            
+
             if (newMessage.senderId !== user?.uid) {
               setMessageByRoomId(change.doc.data() as MessageType);
             }
